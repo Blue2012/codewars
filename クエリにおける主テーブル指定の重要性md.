@@ -1,0 +1,58 @@
+# クエリにおける主テーブル指定の重要性について（簡単なんだけど、ひっかけ問題）
+
+まずは問題の内容から。
+
+![image](https://user-images.githubusercontent.com/18514297/90949661-fbd3d000-e484-11ea-9605-841ac51ed6f4.png)
+
+![image](https://user-images.githubusercontent.com/18514297/90949670-0ee6a000-e485-11ea-933d-ec895e9ba4d8.png)
+
+そして、正解のコードは以下になる。
+
+```
+select
+T2.transaction_date::date as day,
+T3.name as department,
+count(T3.id) as sale_count
+from employee T1
+join sale T2 on T1.id = T2.employee_id
+join department T3 on T2.department_id = T3.id
+join product T4 on T2.product_id = T4.id
+group by day,department
+order by 1 asc
+```
+
+こちらの問題、一見するとすごく簡単そうなのだが、実はひっかけポイントがある。
+私が引っかかったポイントは以下。
+
+１．主テーブルを間違えた
+２．カウントする数値が分からなかった
+
+最初に書いて不正解となったコードは以下。
+
+```
+select
+T2.transaction_date::date as day,
+T1.name as department,
+count(T2.transaction_date)::integer as sale_count
+from department T1
+join sale T2 on T1.id = T2.id
+group by day,department
+order by 1 asc
+```
+
+普通に考えると、saleテーブルとdepartmentテーブルがあれば、事足りるように感じてしまう。
+カラムだけで考えるなら、saleとdepartmentのカラムだけを指定しているからだ。
+
+私はそうだったし、codewarsにはその手のひっかけが結構ある。
+図としてはテーブルが用意されているが、正解のコードでは指定しない不要なテーブルが存在するケース。
+
+しかし、今回の問題の肝として、employeeテーブルを「主テーブル」にして、クエリを実行することが重要になる。
+というのも、売上日ごとにレコードをグルーピングするということなのだが、
+「誰がどれくらいその日に売り上げたのか」という情報はemployeeテーブルを主テーブルにしないと引き出せない。
+
+employeeに紐づいているIDを主キーとすると、「その人が売り上げた処理日」を引き出すことができる。
+これが、saleとdepertmentだけの関係性には存在しない情報になるのだ。
+
+employeeテーブルを主テーブルとして、innner joinをしてやり、departmentのidをカウント(count関数)してやれば、
+売上日ごとの、部署の売り上げ回数を出力することができる。
+グルーピングの条件は、問題文にも指定されている通り、「transaction_date」「売り上げ回数=count(id.department)」となる。
